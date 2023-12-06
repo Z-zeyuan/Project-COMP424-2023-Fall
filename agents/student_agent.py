@@ -26,7 +26,7 @@ class StudentAgent(Agent):
         root_state = WorldState(chess_board, my_pos, adv_pos, max_step)
         mcts = MCTS(root_state)
 
-        move = mcts.run(1000)
+        move = mcts.run(50)
 
         return move
 
@@ -145,9 +145,9 @@ class Node:
         self.parent = parent
         self.children = []
         self.visits = 0
-        self.wins = 0
+        self.utility = 0
         self.played_move = played_move
-
+        self.level =0
         self.untried_moves = self.state.get_possible_moves()
 
     def __str__(self):
@@ -161,7 +161,7 @@ class Node:
     
     def select_child(self, c=1.3):
         children_ucts = [
-            (child.wins / child.visits) + c * np.sqrt((2 * np.log(self.visits))/child.visits)
+            (child.utility / child.visits)
             for child in self.children
         ]
         return self.children[np.argmax(children_ucts)]
@@ -183,7 +183,10 @@ class MCTS:
         self.counter = 0
 
     def run(self, num_simulations):
+        start_time = time.time()
         for _ in range(num_simulations):
+            time_taken = time.time() - start_time
+            if  time_taken > 1.85: break
             leaf = self.select(self.root)
             result = self.simulate(leaf)
             self.backpropagate(leaf, result)
@@ -192,33 +195,52 @@ class MCTS:
 
     def select(self, node):
         curr_node = node
-        while not curr_node.is_terminal_node():
-            if not curr_node.fully_expanded():
-                self.counter += 1
+        while (not curr_node.is_terminal_node())  :
+            counter1 = 0
+            if (not curr_node.fully_expanded() )  & (counter1<20) :
+                counter1 +=1
                 return self.expand(curr_node)
             else:
-                curr_node = curr_node.select_child()
+                counter1 = 0
+                if  self.counter < 10:
+                    curr_node = curr_node.select_child()
+                    self.counter += 1
+                else:
+                    break
+
         return curr_node
 
     def expand(self, node):
         new_move = node.get_untried_move()
         new_state = node.state.get_next_state(new_move)
         new_node = Node(new_state, parent=node, played_move=new_move)
+        new_node.level = node.level +1
         node.children.append(new_node)
         return new_node
 
-    def simulate(self, node, rollout_depth=10):
+    def simulate(self, node, rollout_depth=9):
         rollout_state = node.state
         ended, score = rollout_state.check_endgame()
+        depth = 0
+        move_of_state1 = len(node.children)
         while not ended:
+            depth+=1
+            move_of_state1 = len(rollout_state.get_possible_moves())
             move = rollout_state.get_random_move()
             rollout_state = rollout_state.get_next_state(move)
+            move_of_state2 = len(rollout_state.get_possible_moves())
+
             ended, score = rollout_state.check_endgame()
+            if ended: break
+            if depth >rollout_depth :
+
+                score =  move_of_state1 - move_of_state2
+                break
         return score
 
     def backpropagate(self, node, result):
         curr_node = node
         while curr_node is not None:
             curr_node.visits += 1
-            curr_node.wins += result
+            curr_node.utility += result
             curr_node = curr_node.parent
