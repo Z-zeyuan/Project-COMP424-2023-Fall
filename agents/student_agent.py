@@ -26,7 +26,7 @@ class StudentAgent(Agent):
         root_state = WorldState(chess_board, my_pos, adv_pos, max_step)
         mcts = MCTS(root_state)
 
-        move = mcts.run(50)
+        move = mcts.run(400//len(chess_board))
 
         return move
 
@@ -66,7 +66,7 @@ class WorldState:
                 new_position = (r + self.moves[d][0], c + self.moves[d][1])
                 if not self.chess_board[r,c,d] and not self.adv_pos == new_position and new_position not in visited:
                     queue.append((new_position, steps + 1))
-
+        random.shuffle(possible_moves)
         return possible_moves
     
 
@@ -188,21 +188,22 @@ class MCTS:
             time_taken = time.time() - start_time
             if  time_taken > 1.85: break
             leaf = self.select(self.root)
-            result = self.simulate(leaf)
+            result = self.simulate(leaf,len(leaf.state.chess_board))
             self.backpropagate(leaf, result)
 
         return self.root.select_child().played_move
 
     def select(self, node):
         curr_node = node
+        num_child = 2*len(node.state.chess_board)
         while (not curr_node.is_terminal_node())  :
-            counter1 = 0
-            if (not curr_node.fully_expanded() )  & (counter1<20) :
-                counter1 +=1
+            CounterBreadth = 0
+            if (not curr_node.fully_expanded() )  & (CounterBreadth<num_child) :
+                CounterBreadth +=1
                 return self.expand(curr_node)
             else:
-                counter1 = 0
-                if  self.counter < 10:
+                CounterBreadth = 0
+                if  self.counter < len(node.state.chess_board):
                     curr_node = curr_node.select_child()
                     self.counter += 1
                 else:
